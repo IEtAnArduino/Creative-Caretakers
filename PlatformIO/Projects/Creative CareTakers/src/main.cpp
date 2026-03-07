@@ -7,6 +7,7 @@
 #include "SPIFFS.h"
 
 
+
 #define I2S_DOUT  27
 #define I2S_BCLK  26
 #define I2S_LRC   25
@@ -196,11 +197,11 @@ void loop() {
     check_a_signals(c1, c2);
 
   Serial.print("R:\t");
-  Serial.print(int(colors[0]));
+  Serial.print(int(c1[0]));
   Serial.print("\tG:\t");
-  Serial.print(int(colors[1]));
+  Serial.print(int(c1[1]));
   Serial.print("\tB:\t");
-  Serial.print(int(colors[2]));
+  Serial.print(int(c1[2]));
 
   //  Serial.print("\t");
   //  Serial.print((int)red, HEX); Serial.print((int)green, HEX); Serial.print((int)blue, HEX);
