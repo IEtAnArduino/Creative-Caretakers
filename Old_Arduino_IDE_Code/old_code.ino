@@ -1,17 +1,9 @@
 // Test
 // Copy and pasted example code
-#include "Arduino.h"
+
 #include <Wire.h>
-#include <Audio.h>
 #include "Adafruit_TCS34725.h"
-#include "SPIFFS.h"
 
-
-#define I2S_DOUT  22
-#define I2S_BCLK  26
-#define I2S_LRC   25
-
-Audio audio;
 /*
 // Pick analog outputs, for the UNO these three work well
 // use ~560  ohm resistor between Red & Blue, ~1K for green (its brighter)
@@ -50,7 +42,6 @@ void checksignals(float colors[3]) {
       if(colors[1] > signalcolors[i][1] - tolerance && colors[1] < signalcolors[i][1] + tolerance){
         if(colors[2] > signalcolors[i][2] - tolerance && colors[2] < signalcolors[i][2] + tolerance){
           Serial.println("Tandem Mobi light signal detected!");
-          
         }
       }
     }
@@ -60,17 +51,11 @@ void checksignals(float colors[3]) {
 
 void setup() {
   Serial.begin(9600);
-  SPIFFS.begin();
   //Serial.println("Creative Caretakers' Glucose Monitor to Audio Warning System (Come up with a better name later!!!)");
-  audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
-  audio.setVolume(15); // Range 0-21
+
   if (tcs.begin()) {
-    //Plays "Found Sensor" through speaker
-    audio.connecttoFS(SPIFFS, "/First.mp3");
     Serial.println("Found sensor");
   } else {
-    //Plays "No TCS34725 found ... check your connections" through speaker
-    audio.connecttoFS(SPIFFS, "/Second.mp3");
     Serial.println("No TCS34725 found ... check your connections");
     while (1)
       ;  // halt!
@@ -102,8 +87,6 @@ void setup() {
 
 
 void loop() {
-  audio.loop();
-
   float colors[3];
 
   tcs.setInterrupt(false);  // turn on LED
