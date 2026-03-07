@@ -7,7 +7,7 @@
 #include "SPIFFS.h"
 
 
-#define I2S_DOUT  22
+#define I2S_DOUT  27
 #define I2S_BCLK  26
 #define I2S_LRC   25
 
@@ -36,11 +36,83 @@ byte signalcolors[][3] = {
 
 // our RGB -> eye-recognized gamma color
 byte gammatable[256];
+bool isYellow = false;
+int whiteCount = 0;  
+bool isWhite = false;
+int redCount = 0;    
+bool isRed = false;
+
+//Defines 2 RGB Sensors
+Adafruit_TCS34725 tcs1 = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+Adafruit_TCS34725 tcs2 = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+
+// Define the two separate I2C buses
+TwoWire I2Cone = Wire;
+TwoWire I2Ctwo = TwoWire(1);
+
+void check_a_signals(float c1[3], float c2[3])
+
+  {
+    bool bothSeeYellow = ( (c1[0] > 150 && c1[1] > 150 && c1[2] < 40) && (c2[0] > 150 && c2[1] > 150 && c2[2] < 40) );
+    bool bothSeeWhite  = ( (c1[0] > 200 && c1[1] > 200 && c1[2] > 200) && (c2[0] > 200 && c2[1] > 200 && c2[2] > 200) );
+    bool bothSeeRed    = ( (c1[0] > 150 && c1[1] < 40 && c1[2] < 40) && (c2[0] > 150 && c2[1] < 40 && c2[2] < 40) );
+    //Yellow Check
+    if (bothSeeYellow && !isYellow) 
+      {
+        isYellow = true;
+        Serial.println("CONFIRMED: Both sensors see Yellow!");
+        audio.connecttoFS(SPIFFS, "/Pump_Reminder.mp3");
+      }
+    
+  else if (!bothSeeYellow) 
+    {
+      isYellow = false; 
+    }
+
+    //White Check
+    if (bothSeeWhite && !isWhite) 
+      {
+        whiteCount++;
+        isWhite = true;
+        Serial.println("CONFIRMED: Both sensors see White!");
+        
+      }
+      if (whiteCount >= 3) 
+      {
+        audio.connecttoFS(SPIFFS, "/Deliveries_Stopped_Manually.mp3");
+        whiteCount = 0;
+      }
+    
+  else if (!bothSeeWhite) 
+    {
+      isWhite = false; 
+    }
+
+    //Red Check
+    if (bothSeeRed && !isRed) 
+      {
+        redCount++;
+        isRed = true;
+        Serial.println("CONFIRMED: Both sensors see Red!");
+        
+      }
+      if (redCount >= 3) 
+      {
+        audio.connecttoFS(SPIFFS, "/Pump_Malfunction_or_Alarm.mp3");
+        redCount = 0;
+      }
+    
+  else if (!bothSeeRed) 
+    {
+      isRed = false; 
+    }
+
+  }
 
 
-Adafruit_TCS34725 tcs = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 
-void checksignals(float colors[3]) {
+
+{
   int tolerance = 5;
 
   for(int i = 0; i < sizeof(signalcolors) / sizeof(signalcolors[0]); i++){
@@ -58,19 +130,23 @@ void checksignals(float colors[3]) {
 }
 
 
+
 void setup() {
   Serial.begin(9600);
   SPIFFS.begin();
   //Serial.println("Creative Caretakers' Glucose Monitor to Audio Warning System (Come up with a better name later!!!)");
   audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
   audio.setVolume(15); // Range 0-21
-  if (tcs.begin()) {
+    I2Cone.begin(21, 22); 
+    I2Ctwo.begin(17, 16);
+  if (tcs1.begin(0x29, &I2Cone) && tcs2.begin(0x29, &I2Ctwo)) 
+  {
     //Plays "Found Sensor" through speaker
-    audio.connecttoFS(SPIFFS, "/First.mp3");
+    audio.connecttoFS(SPIFFS, "/Found.mp3");
     Serial.println("Found sensor");
   } else {
     //Plays "No TCS34725 found ... check your connections" through speaker
-    audio.connecttoFS(SPIFFS, "/Second.mp3");
+    audio.connecttoFS(SPIFFS, "/No_Found.mp3");
     Serial.println("No TCS34725 found ... check your connections");
     while (1)
       ;  // halt!
@@ -104,15 +180,20 @@ void setup() {
 void loop() {
   audio.loop();
 
-  float colors[3];
+  float c1[3], c2[3];
 
-  tcs.setInterrupt(false);  // turn on LED
+    tcs1.setInterrupt(false);
+    tcs2.setInterrupt(false);
+    
+    delay(60); 
 
-  delay(60);  // takes 50ms to read
+    tcs1.getRGB(&c1[0], &c1[1], &c1[2]);
+    tcs2.getRGB(&c2[0], &c2[1], &c2[2]);
 
-  tcs.getRGB(&colors[0], &colors[1], &colors[2]);
+    tcs1.setInterrupt(true);
+    tcs2.setInterrupt(true);
 
-  tcs.setInterrupt(true);  // turn off LED DOES NOT WORK!!!!
+    check_a_signals(c1, c2);
 
   Serial.print("R:\t");
   Serial.print(int(colors[0]));
@@ -125,7 +206,7 @@ void loop() {
   //  Serial.print((int)red, HEX); Serial.print((int)green, HEX); Serial.print((int)blue, HEX);
   Serial.print("\n");
 
-  checksignals(colors);
+  
 
 
   /*
